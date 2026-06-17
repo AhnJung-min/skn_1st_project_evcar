@@ -25,6 +25,16 @@ CREATE TABLE IF NOT EXISTS faq (
   COMMENT='교통안전공단 FAQ';
 
 -- ------------------------------------------------------------
---  [팀원 추가 영역] 본인 데이터셋 테이블을 여기에 정의하세요.
---  예) CREATE TABLE IF NOT EXISTS ev_charger ( ... );
+--  [김길환] 전체 자동차 대수 대비 전기차 비중 데이터 비교
 -- ------------------------------------------------------------
+DROP TABLE IF EXISTS car_ev_status;
+
+CREATE TABLE car_ev_status (
+    id          INT          AUTO_INCREMENT NOT NULL,
+    base_month  VARCHAR(7)   NOT NULL,
+    region      VARCHAR(50)  NOT NULL,
+    total_cars  INT          NOT NULL,
+    ev_cars     INT          NOT NULL,
+    ev_ratio    FLOAT        NOT NULL,
+    PRIMARY KEY (id)
+);
