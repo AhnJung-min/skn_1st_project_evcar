@@ -18,14 +18,16 @@ from common.db import get_engine
 load_dotenv()
 
 # 2. DB 접속 정보 설정
-db_connection = pymysql.connect(
-    host=os.getenv("DB_HOST", "localhost"),
-    user=os.getenv("DB_USER", "root"),
-    password=os.getenv("DB_PASSWORD", "mysql"),
-    database=os.getenv("DB_NAME", "ev_infra"),  # DB명이 다르면 수정하세요
-    charset="utf8mb4",
-    cursorclass=pymysql.cursors.DictCursor
-)
+engine = get_engine()
+db_connection = engine.raw_connection()
+# db_connection = pymysql.connect(
+#     host=os.getenv("DB_HOST", "localhost"),
+#     user=os.getenv("DB_USER", "root"),
+#     password=os.getenv("DB_PASSWORD", "mysql"),
+#     database=os.getenv("DB_NAME", "ev_infra"),  # DB명이 다르면 수정하세요
+#     charset="utf8mb4",
+#     cursorclass=pymysql.cursors.DictCursor
+# )
 
 csv_path = settings.DATA_DIR / "신가을_전기차 화재 발생 현황_20241231.csv"
 

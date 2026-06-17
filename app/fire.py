@@ -12,8 +12,8 @@ from common.db import get_engine
 # 1. 페이지 설정 및 제목
 st.set_page_config(page_title="전기차 화재 분석 대시보드", page_icon="🔥", layout="wide")
 st.title("🔥 전기차 화재 발생 현황 멀티 분석 대시보드")
-st.markdown("소방청 데이터를 기반으로 한 대한민국 전기차 화재 통계입니다."
-            "사이드바의 필터를 변경하면 전체 대시보드의 데이터가 실시간으로 필터링 됩니다.")
+st.markdown("소방청 데이터를 기반으로 한 대한민국 전기차 화재 통계입니다.")
+st.markdown("사이드바의 필터를 변경하면 전체 대시보드의 데이터가 실시간으로 필터링 됩니다.")
 
 # 2. 데이터 로드 함수
 @st.cache_data
@@ -127,18 +127,41 @@ row2_col1, row2_col2 = st.columns(2)
 
 with row2_col1:
     st.subheader("⚡ 발화요인 계층 분석 (대분류 → 소분류)")
+
     # 대분류 하위로 소분류 구분을 한눈에 보여주는 트리맵(Treemap) 차트
-    fig_tree = px.treemap(df, path=['ignition_main_category', 'ignition_sub_category'],
+    fig_tree = px.treemap(df,
+                          path=['ignition_main_category', 'ignition_sub_category'],
                           title="발화요인 대/소분류 비중 (네모 크기=발생 빈도)")
+
+    # 툴팁(Hover) 커스텀 설정을 통해 불필요한 정보 제거 및 한글화 진행
+    # %{label}: 현재 마우스가 올라간 항목의 이름 (대분류명 혹은 소분류명)
+    # %{value}: 자동으로 집계된 해당 항목의 데이터 총 개수 (건수)
+    # <extra></extra>: 우측에 따로 붙는 무미건조한 ID 라벨 박스를 제거
+    fig_tree.update_traces(
+        hovertemplate="<b>%{label}</b><br>화재 건수: %{value}건<extra></extra>"
+    )
+
     st.plotly_chart(fig_tree, use_container_width=True)
 
 with row2_col2:
     st.subheader("🏢 공간별 지상 / 지하 화재 비율")
+
+    # 공간별 실제 합산 '건수' 계산
+    df_ground = df.groupby('ground_level').size().reset_index(name='건수')
+
     # 도넛 차트 구성
-    fig_donut = px.pie(df, names='ground_level', hole=0.4,
+    fig_donut = px.pie(df_ground,
+                       names='ground_level',
+                       values='건수',
+                       hole=0.4,
                        title="공간구분별 비율",
                        color_discrete_sequence=px.colors.qualitative.Pastel)
-    fig_donut.update_traces(textinfo='percent+label')
+    # textinfo: 차트 표면에 보일 정보 (라벨과 퍼센트 유지)
+    # hovertemplate: 마우스를 올렸을 때 나타날 포맷 (건수 명시 + 우측 불필요한 라벨 박스 제거)
+    fig_donut.update_traces(
+        textinfo='percent+label',
+        hovertemplate="<b>%{label}</b><br>화재 건수: %{value}건<extra></extra>"
+    )
     st.plotly_chart(fig_donut, use_container_width=True)
 
 st.write("---")
@@ -149,10 +172,21 @@ st.write("---")
 st.subheader("🔀 차량 상태별 발화요인 교차 분석")
 st.markdown("차량이 특정 상태(충전중/주차/운행중)일 때 어떤 화재 원인이 주로 발생하는지 복합 비교합니다.")
 
+# 차량 상태와 발화요인별로 그룹화하여 실제 합산 건수 데이터프래임
+df_counts = df.groupby(['vehicle_status', 'ignition_main_category']).size().reset_index(name='건수')
+
 # 누적 막대 그래프(Stacked Bar Chart) 구성
-fig_stack = px.bar(df, x='vehicle_status', color='ignition_main_category',
-                   labels={'vehicle_status': '차량 상태', 'ignition_main_category': '발화요인 대분류', 'count': '건수'},
-                   barmode='stack')
+fig_stack = px.bar(df_counts,
+                   x='vehicle_status',
+                   y='건수',
+                   color='ignition_main_category',
+                   labels={'vehicle_status': '차량 상태', 'ignition_main_category': '발화요인 대분류', '건수': '건수'},
+                   barmode='stack',
+                   text='건수')  # 막대 조각 내부에 숫자를 표시하는 옵션
+
+# 막대 내부 숫자 포맷 및 위치 세부 설정
+fig_stack.update_traces(texttemplate='%{text}', textposition='inside')
+
 st.plotly_chart(fig_stack, use_container_width=True)
 
 st.write("---")
