@@ -1,0 +1,134 @@
+# app/pages/3_전기차 화재 발생 현황.py
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # pages/는 parents[2]
+
+import pandas as pd
+import streamlit as st
+import plotly.express as px
+from common.config import settings
+from common.db import get_engine
+
+# 1. 페이지 설정 및 제목
+st.set_page_config(page_title="전기차 화재 분석 대시보드", page_icon="🔥", layout="wide")
+st.title("🔥 전기차 화재 발생 현황 멀티 분석 대시보드")
+st.markdown("소방청 데이터를 기반으로 한 대한민국 전기차 화재 통계입니다."
+            "사이드바의 필터를 변경하면 전체 대시보드의 데이터가 실시간으로 필터링 됩니다.")
+
+# 2. 데이터 로드 함수
+@st.cache_data
+def load_data():
+    try:
+        query = "select * from ev_fire_records"
+        return pd.read_sql(query, get_engine())
+    except Exception as e:
+        # DB 연결 실패 시 에러 메시지를 화면에 살짝 출력하고 CSV로 파일 읽기
+        st.sidebar.warning(f"⚠️ DB 접속 실패 (로컬 CSV 파일로 대체합니다.): {e}")
+
+        return pd.read_csv(settings.DATA_DIR / "신가을_전기차 화재 발생 현황_20241231.csv", encoding="utf-8-sig")
+
+# 데이터 불러오기
+df = load_data()
+
+# --------------------------------------------
+# 3. 사이드바 대화형 필터 (Interactive Filters) 구성
+# --------------------------------------------
+st.sidebar.header("🔎 데이터 상세 필터링")
+
+# (1) 화재발생연도 & 월 필터
+all_years = sorted(df_raw['fire_year'].unique().tolist())
+all_months = sorted(df_raw['fire_month'].unique().tolist())
+
+selected_years = st.sidebar.multiselect("📆 발생 연도 선택", all_years, default=all_years)
+selected_months = st.sidebar.multiselect("📆 발생 월 선택", all_months, default=all_months)
+
+# (2) 시도(지역) 필터
+all_sido = sorted(df_raw['sido'].unique().tolist())
+selected_sido = st.sidebar.multiselect("📍 지역(시도) 선택", all_sido, default=all_sido)
+
+# (3) 발화요인 대분류 필터
+all_causes = sorted(df_raw['ignition_main_category'].dropna().unique().tolist())
+selected_causes = st.sidebar.multiselect("⚡ 발화요인 대분류 선택", all_causes, default=all_causes)
+
+# 사용자가 선택한 조건에 따라 데이터를 실시간 필터링
+df = df_raw[
+    (df_raw['fire_year'].isin(selected_years)) &
+    (df_raw['fire_month'].isin(selected_months)) &
+    (df_raw['sido'].isin(selected_sido)) &
+    (df_raw['ignition_main_category'].isin(selected_causes))
+]
+
+# 데이터가 텅 비었을 경우를 대비한 예외 안내
+if df.empty:
+    st.warning("선택하신 필터 조건에 일치하는 화재 데이터가 없습니다. 사이드바 조건을 다시 조정해 주세요.")
+    st.stop()
+
+# --------------------------------------------
+# 4. 상단 요약 지표 (Metrics) 구역 생성
+# --------------------------------------------
+st.subheader("📊 필터링된 데이터 요약")
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.metric(label="🚨 총 화재 발생", value=f"{len(df)} 건", delta=f"전체 {len(df_raw)}건 중"
+
+with col2:
+    top_reg = df['sido'].value_counts().idxmax()
+    st.metric(label="📍 최다 발생 지역", value=top_reg)
+
+with col3:
+    top_cause = df['ignition_main_category'].value_counts().idxmax()
+    st.metric(label="⚡ 주요 발화 원인", value=top_cause)
+
+with col4:
+    # 가장 화재가 많이 발생한 차량 상태 (주차, 충전, 운행 등)
+    top_status = df['vehicle_status'].value_counts().idxmax()
+    st.metric(label="🚗 최다 화재 시 차량 상태", value=top_status)
+
+st.write("---")
+
+# --------------------------------------------
+# 5. 시각화 파트 1: 시계열 트렌드 & 지역별 분석 (Top 2개 레이아웃)
+# --------------------------------------------
+row1_col1, row1_col2 = st.columns(2)
+
+with row1_col1:
+    st.subheader("📆 월별 화재 발생 추이 (시계열)")
+    # 월별 건수 집계 및 정렬
+    monthly_trend = df.groupby('fire_month').size().reset_index(name="화재건수")
+
+    # 선 그래프(Line Chart) 시각화
+    fig_line = px.line(monthly_trend, x='fire_month', y='화재건수',
+                       labels={'fire_month': '발생 월', '화재건수': '발생 건수'},
+                       markers=True, text='화재건수', title="월별 화재 추세선")
+    fig_line.update_traces(textposition="top center", line_color="#EF553B")
+    fig_line.update_layout(xaxis=dict(tickmode='linear', dtick=1)) # x축 1월단위 고정
+    st.plotly_chart(fig_line, use_container_width=True)
+
+with row1_col2:
+    st.subheader("🗺️ 지역별(시도) 화재 발생 순위")
+    # 시도별 화재 건수 정렬
+    region_counts = df['sido'].value_counts().reset_index()
+    region_counts.columns = ['지역', '화재건수']
+
+    # 가로 막대 그래프(Horizontal Bar)로 가독성 상향
+    fig_bar = px.bar(region_counts, x='화재건수', y='지역', orientation='h',
+                     text='화재건수', color='화재건수',
+                     color_continuous_scale='Oranges', title="지역별 화재 빈도")
+    fig_bar.update_layout(yaxis={'categoryorder': 'total asscending'})  # 빈도 많은 순 정렬
+    st.plotly_chart(fig_bar, use_container_width=True)
+
+st.write("---")
+
+# --------------------------------------------
+# 6. 시각화 파트 2: 계층형 발화요인 & 특정인사이트 (지상/지하)
+# --------------------------------------------
+row2_col1, row2_col2 = st.columns(2)
+
+with row2_col1:
+    st.subheader("⚡ 발화요인 계층 분석 (대분류 → 소분류)")
+    # 대분류 하위로 소분류 구분을 한눈에 보여주는 트리맵(Treemap) 차트
+    
+
+st.dataframe(df)
+# 여기 아래에 본인 시각화 코드 작성
