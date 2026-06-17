@@ -46,14 +46,19 @@ CREATE TABLE IF NOT EXISTS `ev_fire_records` (
 -- ------------------------------------------------------------
 --  [김길환] 전체 자동차 대수 대비 전기차 비중 데이터 비교
 -- ------------------------------------------------------------
-DROP TABLE IF EXISTS car_ev_status;
+CREATE TABLE IF NOT EXISTS car_ev_status (
+    id          INT          AUTO_INCREMENT NOT NULL COMMENT '행 고유 ID',
+    base_month  VARCHAR(7)   NOT NULL COMMENT '기준 연월(YYYY-MM)',
+    region      VARCHAR(50)  NOT NULL COMMENT '지역(시도)',
+    total_cars  INT          NOT NULL COMMENT '총 자동차 등록 대수',
+    ev_cars     INT          NOT NULL COMMENT '전기차 등록 대수',
+    ev_ratio    FLOAT        NOT NULL COMMENT '전기차 비중(%)',
+    PRIMARY KEY (id),
+    KEY idx_month (base_month)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='전체 자동차 대비 전기차 비중(지역·월별)';
 
-CREATE TABLE car_ev_status (
-    id          INT          AUTO_INCREMENT NOT NULL,
-    base_month  VARCHAR(7)   NOT NULL,
-    region      VARCHAR(50)  NOT NULL,
-    total_cars  INT          NOT NULL,
-    ev_cars     INT          NOT NULL,
-    ev_ratio    FLOAT        NOT NULL,
-    PRIMARY KEY (id)
-);
+-- ------------------------------------------------------------
+--  [팀원 추가 영역] 본인 데이터셋 테이블을 여기에 정의하세요.
+--  예) CREATE TABLE IF NOT EXISTS ev_charger ( ... );
+-- ------------------------------------------------------------

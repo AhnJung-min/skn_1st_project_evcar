@@ -1,102 +1,83 @@
-import os
+# etl/load_car_num.py
+"""general_num.csv + ev_num.csv 를 정제·병합해 car_ev_status 테이블에 적재한다.
+
+- 일반 자동차(general_num.csv, cp949) 와 전기차(ev_num.csv, utf-8) 를
+  (연월, 지역) 기준으로 합쳐 지역·월별 전기차 비중(ev_ratio)을 계산한다.
+- 공용 모듈(common) 사용. 재실행해도 중복되지 않도록 적재 전 테이블을 비운다.
+"""
 import csv
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # etl/ → 프로젝트 루트
+
 import pandas as pd
-from sqlalchemy import create_engine
-from dotenv import load_dotenv
+from sqlalchemy import text
 
-# 1. .env 파일에서 DB 접속 정보(아이디, 비번 등)를 로드합니다.
-load_dotenv()
-
-
-def get_db_engine():
-    """MySQL 데이터베이스와 안전하게 연결 통로를 만드는 함수"""
-    return create_engine(
-        f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
-        f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
-    )
+from common.config import settings
+from common.db import get_engine
 
 
-def main():
-    print("🔄 [1단계: 데이터 전처리 시작] 회원님 스타일의 텍스트 정제 및 비율 계산을 시작합니다...")
-
-    final_data_list = []
+def build_dataframe() -> pd.DataFrame:
+    """CSV 두 개를 읽어 (연월, 지역) 단위로 병합한 DataFrame 을 만든다."""
     general_data = {}
 
-    # [일반 자동차 파일 읽기]
-    with open(r'C:/SKN_AI/skn_1st_project_evcar/data/general_num.csv', mode='r', encoding='cp949') as f:
+    # [일반 자동차] 헤더 2줄 건너뜀, 천 단위 쉼표로 쪼개진 마지막 두 조각 결합
+    with open(settings.DATA_DIR / "general_num.csv", encoding="cp949") as f:
         reader = csv.reader(f)
-        next(reader)  # 헤더 1줄 건너뛰기
-        next(reader)  # 헤더 2줄 건너뛰기
-
+        next(reader)
+        next(reader)
         for row in reader:
             if not row or len(row) < 4:
                 continue
-
-            연월 = row[0].strip()
-            지역 = row[1].strip()
-
-            # 천 단위 쉼표 때문에 쪼개진 마지막 두 조각을 결합하여 중복 없는 진짜 총계를 구합니다.
+            연월, 지역 = row[0].strip(), row[1].strip()
             try:
-                진짜총계str = row[-2].strip() + row[-1].strip()
-                진짜총계 = int(진짜총계str)
+                진짜총계 = int(row[-2].strip() + row[-1].strip())
             except ValueError:
-                try:
-                    진짜총계 = int(row[-1].strip())
-                except:
-                    진짜총계 = 0
+                진짜총계 = int(row[-1].strip()) if row[-1].strip().isdigit() else 0
+            general_data[(연월, 지역)] = general_data.get((연월, 지역), 0) + 진짜총계
 
-            key = (연월, 지역)
-            general_data[key] = general_data.get(key, 0) + 진짜총계
-
-    # [전기차 파일 읽기]
-    with open(r'C:/SKN_AI/skn_1st_project_evcar/data/ev_num.csv', mode='r', encoding='utf-8') as f:
+    # [전기차] 헤더 1줄, 컬럼별(지역) 값을 일반 자동차와 매칭
+    rows = []
+    with open(settings.DATA_DIR / "ev_num.csv", encoding="utf-8") as f:
         reader = csv.reader(f)
         headers = next(reader)
-
         for row in reader:
             if not row:
                 continue
             연월 = row[0][:7].strip()
-
             for idx in range(1, len(row)):
                 지역 = headers[idx].strip()
-                val = row[idx]
+                clean_val = row[idx].replace(",", "").strip()
+                if not clean_val.isdigit():
+                    continue
+                전기차대수 = int(clean_val)
+                전체대수 = general_data.get((연월, 지역))
+                if 전체대수 is None:
+                    continue
+                비율 = round((전기차대수 / 전체대수) * 100, 2) if 전체대수 > 0 else 0.0
+                rows.append({
+                    "base_month": 연월,
+                    "region": 지역,
+                    "total_cars": 전체대수,
+                    "ev_cars": 전기차대수,
+                    "ev_ratio": 비율,
+                })
 
-                if val.strip():
-                    clean_val = val.replace(',', '').strip()
-                    if clean_val.isdigit():
-                        전기차대수 = int(clean_val)
+    return pd.DataFrame(rows, columns=["base_month", "region", "total_cars", "ev_cars", "ev_ratio"])
 
-                        if (연월, 지역) in general_data:
-                            전체자동차대수 = general_data[(연월, 지역)]
 
-                            # ⭐ [핵심 추가] total_cars 대비 ev_cars의 비율을 계산합니다 (소수점 둘째 자리까지)
-                            if 전체자동차대수 > 0:
-                                전기차비율 = round((전기차대수 / 전체자동차대수) * 100, 2)
-                            else:
-                                전기차비율 = 0.0
+def main():
+    df = build_dataframe()
+    engine = get_engine()
 
-                            final_data_list.append({
-                                'base_month': 연월,
-                                'region': 지역,
-                                'total_cars': 전체자동차대수,
-                                'ev_cars': 전기차대수,
-                                'ev_ratio': 전기차비율  # 👈 DB 테이블에 비율 컬럼 추가!
-                            })
+    # 재실행 시 중복 방지: schema.sql 로 만든 테이블 구조는 유지하고 데이터만 갈아끼움
+    with engine.begin() as conn:
+        conn.execute(text("TRUNCATE TABLE car_ev_status"))
+    df.to_sql("car_ev_status", con=engine, if_exists="append", index=False)
 
-    print("🤝 [2단계: 데이터 병합 완료] 비율 계산이 포함된 청정 데이터가 조립되었습니다.")
-    print("🚀 [3단계: DB 적재] MySQL 'car_ev_status' 테이블에 적재를 시작합니다...")
-
-    df_final = pd.DataFrame(final_data_list)
-    engine = get_db_engine()
-
-    # 'replace' 옵션으로 기존 구조를 깔끔하게 밀어버리고 ev_ratio 컬럼이 포함된 새 테이블을 만듭니다.
-    df_final.to_sql('car_ev_status', con=engine, if_exists='replace', index=False)
-
-    print("\n⭐ [복원 및 비율 계산 완료] 상위 데이터 미리보기:")
-    # 보기 편하게 소수점 뒤에 %를 붙인 가독성용 출력 포맷 설정 (실제 DB에는 순수 숫자만 들어갑니다)
-    print(df_final.head(10))
-    print("\n🎉 총 자동차 대수 대비 전기차 비율(ev_ratio)까지 완벽하게 적재되었습니다!")
+    print(f"적재 완료: ev_infra.car_ev_status ({len(df)}건)")
+    print(df.head(10))
 
 
 if __name__ == "__main__":
