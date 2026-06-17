@@ -192,7 +192,18 @@ with st.expander("📊 데이터 한눈에 보기 (출처·카테고리 분포)"
                          title="카테고리 Top 10")
         fig_cat.update_layout(height=320, margin=dict(t=50, b=10, l=10, r=10),
                               coloraxis_showscale=False, yaxis_title=None, xaxis_title=None)
-        st.plotly_chart(fig_cat, use_container_width=True)
+        st.caption("💡 막대를 클릭하면 해당 카테고리로 아래 결과가 필터링됩니다.")
+        cat_event = st.plotly_chart(fig_cat, use_container_width=True,
+                                    on_select="rerun", key="cat_chart")
+
+        # 막대 클릭 → 카테고리 필터에 반영 (새 클릭일 때만)
+        pts = (cat_event.selection.points if cat_event and cat_event.selection else []) or []
+        clicked = [p.get("y") or p.get("label") for p in pts]
+        clicked = [c for c in clicked if c]
+        if clicked and st.session_state.get("_last_cat_click") != clicked:
+            st.session_state["_last_cat_click"] = clicked
+            st.session_state["cat_filter"] = clicked
+            st.rerun()
 
 st.divider()
 
@@ -214,7 +225,11 @@ sel_sources = sel_sources or []
 
 filtered_by_source = [d for d in data if d.get("source") in sel_sources]
 all_categories = sorted({d["category"] for d in filtered_by_source if d.get("category")})
-sel_categories = st.multiselect("카테고리 필터", all_categories, default=[])
+
+# 차트 클릭 등으로 선택된 값 중 현재 선택 가능한 카테고리만 남김(없는 값이면 오류 방지)
+if "cat_filter" in st.session_state:
+    st.session_state["cat_filter"] = [c for c in st.session_state["cat_filter"] if c in all_categories]
+sel_categories = st.multiselect("카테고리 필터", all_categories, key="cat_filter")
 
 results = [d for d in data if match(d, keyword, scope, sel_sources, sel_categories)]
 
