@@ -1,0 +1,17 @@
+# 환경/비밀
+.env
+
+# 파이썬
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# 수집 중간 산출물(원본 raw 는 공유 제외, 정제본 data/faq.json·csv 는 커밋)
+data/*_raw.json
+
+# OS/에디터
+.DS_Store
+.idea/
+.vscode/
