@@ -1,280 +1,175 @@
-# skn_1st_project_evcar
+# ⚡ EV — 전기차 공공데이터 조회 웹 애플리케이션
 
-전기차 / 교통 인프라 공공데이터 수집 → MySQL 적재 → Streamlit 시각화 팀 프로젝트.
+> 수업에서 배운 개별 기술을 연계하여 데이터를 직접 수집·적재하고, Streamlit으로 시각화까지 수행한 프로젝트입니다.
 
----
+<br>
 
-## 📌 팀원 빠른 시작 (CSV 데이터가 있는 경우)
+## 1. 팀 소개
 
-> 처음 합류하는 팀원은 여기서 시작하세요. 아래 순서대로만 따라하면 됩니다.
+**팀명 : 클로드야 해조**
 
----
+🔗 **프로젝트 저장소** : [skn_1st_project_evcar](https://github.com/skn1stevcar/skn_1st_project_evcar)
 
-### STEP 0 — 준비
+| 이름 | 역할 | 담당 데이터셋 | GitHub |
+| :---: | :---: | :--- | :--- |
+| 안정민 | **PM** | 자동차 FAQ (3개 사이트 크롤링) | [@AhnJung-min](https://github.com/AhnJung-min) |
+| 권세진 | 팀원 | 고속도로 통행량 · 충전 수요 | [@tangerine0101](https://github.com/tangerine0101) |
+| 김길환 | 팀원 | 전체 자동차 대비 전기차 비중 | [@amygdalis24](https://github.com/amygdalis24) |
+| 신가을 | 팀원 | 전기차 화재 발생 현황 | [@SpicyAutumn](https://github.com/SpicyAutumn) |
+| 김혜리 | 팀원 | 고속도로 충전 수요 · 지도 시각화 | [@kimerry-333](https://github.com/kimerry-333) |
+
+<br>
+
+## 2. 프로젝트 개요
+
+- **프로젝트 명** : EV
+- **프로젝트 소개** : 수업에서 배운 개별 기술을 연계하여 직접 데이터를 수집하고 DB에 적재한 후, Streamlit을 이용하여 시각화까지 진행한 프로젝트입니다.
+- **프로젝트 필요성 (배경)** : 전기차를 구매하는 사람들이 많아지고 있기에, 충전소 인프라가 어디에 얼마나 구성되어 있는지, 그리고 전기차에서 발생하는 사고의 종류는 어떤 것이 많은지를 미리 알 수 있도록 하기 위해 진행하였습니다.
+- **프로젝트 목표** : 전기차 관련 공공 데이터를 조회할 수 있는 웹 애플리케이션을 구현합니다.
+
+### 🛠 사용 기술
+
+| 구분 | 기술 |
+| :---: | :--- |
+| 언어 | `Python` |
+| 데이터 수집 | `requests` (OpenAPI) · 웹 스크래핑 · `Kakao 주소검색 API`(좌표 변환) |
+| 데이터 처리 | `pandas` · `openpyxl` |
+| 데이터베이스 | `MySQL` · `SQLAlchemy` · `PyMySQL` |
+| 시각화 / 웹 | `Streamlit` · `Plotly` · `Altair` · `pydeck` |
+| 환경 관리 | `python-dotenv` (`.env` 기반 DB·API 키 분리) |
+
+<br>
+
+## 3. 데이터 수집 방법
+
+공공데이터 포털 OpenAPI/파일과 웹 스크래핑을 함께 사용했으며, 수집한 원본은 정제(transform) 후 MySQL `ev_infra` DB에 적재했습니다.
+
+| 데이터셋 | 출처 | 수집 방식 | 적재 테이블 |
+| :--- | :--- | :--- | :--- |
+| 자동차 FAQ (425건) | 한국교통안전공단 · 자동차365 · 무공해차 통합누리집 | 웹 스크래핑 | `faq` |
+| 전기차 화재 발생 현황 | 소방청 | 공공데이터 파일(CSV) | `ev_fire_records` |
+| 지역별 전기차 / 전체 자동차 현황 | 한국전력공사 · 국토교통부 | 공공데이터 파일(CSV) | `car_ev_status` |
+| 고속도로 통행량 · 충전 수요 | 한국도로공사 등 | 공공데이터 파일(XLSX) | `ev_traffic_analysis` · `ev_charging_analysis` |
+| 충전소 좌표 | Kakao 주소검색 API | 주소 → 위경도 변환 | `ev_charger_geo` |
+
+> FAQ 출처별 수집 건수 — 한국교통안전공단 295건 · 자동차365 93건 · 무공해차 통합누리집 37건 = **합계 425건**
+>
+> 자세한 데이터셋 명세(컬럼·인코딩·연계 가이드)는 [`DATASETS.md`](DATASETS.md) 참고.
+
+<br>
+
+## 4. DB 설계 (논리 / 물리 ERD)
+
+전체 스키마는 [`sql/schema.sql`](sql/schema.sql)에 정의되어 있으며, `ev_infra` 데이터베이스(utf8mb4)에 아래 테이블로 구성됩니다.
+
+| 테이블 | 설명 | 담당 |
+| :--- | :--- | :---: |
+| `faq` | 자동차 관련 사이트 FAQ(출처별 통합, PK: `source` + `id`) | 안정민 |
+| `ev_fire_records` | 전기차 화재 발생 현황(연·월·시도·발화요인 등) | 신가을 |
+| `car_ev_status` | 전체 자동차 대비 전기차 비중(지역·월별) | 김길환 |
+| `raw_highway_traffic` / `ev_traffic_analysis` | 고속도로 통행량 원본 → 정제·집계 | 권세진 |
+| `raw_ev_charger_daily` / `ev_charging_analysis` | 충전소 일별 원본 → 정제·집계 | 김혜리 |
+| `ev_charger_geo` | 충전소 좌표(Kakao API 결과) | 김혜리 |
+| `ev_charging_map_analysis` (VIEW) | 충전 집계 + 좌표 조인(지도 시각화용) | 김혜리 |
+
+> 설계 패턴 — 원본은 `raw_*` 테이블에 문자 그대로 적재한 뒤, SQL/Python으로 정제해 `*_analysis` 분석 테이블로 빌드합니다. 지도 화면은 별도 적재 없이 VIEW로 조인합니다.
+
+<!-- 논리 ERD 이미지 (작성 예정) -->
+<!-- 물리 ERD 이미지 (작성 예정) -->
+
+<br>
+
+## 5. 주요 기능
+
+> 메인 페이지([`app/dashboard.py`](app/dashboard.py))는 4개 분석 페이지로 진입하는 랜딩 페이지이며, 사이드바에서 아래 순서로 이동합니다.
+
+### 5-1. 전기차 비중 트렌드 `pages/1_EV_Share_Trend · car_ev_status`
+- 이중축 라인 차트 — 전기차 비중(%) + 신규 전환율(%) (`make_subplots` + `go.Scatter`)
+- 기간 선택 라디오 → 선택 월 강조
+- 지표 카드 3종 (총 자동차 / 총 전기차 / 비중, 전월 대비 증감)
+- 연월별 상세 표 (`st.dataframe`)
+- DB 접속 실패 시 `data/general_num.csv` + `ev_num.csv` 로 자동 폴백
+
+### 5-2. 충전 수요·통행 분석 `pages/2_EV_Charging_Demand · charging/traffic/geo`
+탭 4개(`st.radio`)로 구성됩니다.
+- **충전 수요 지도** — pydeck 산점 지도(163곳) + 표 + 표시 수 슬라이더
+- **통행 vs 충전 비교** — 일별 라인 + 통행×충전 산점도 + 표
+- **통행량 분석** — 일별 라인 + 목적지 다중선택 라인 + 목적지/구간 Top10 표
+- **충전 상세** — 일별 라인 + 충전건수 Top10 막대 + 충전소 drill-down(선택 → 지표 + 라인)
+
+### 5-3. 전기차 화재 현황 `pages/3_EV_Fire_Incidents · ev_fire_records`
+- KPI 지표 4종 (`st.metric`)
+- 사이드바 대화형 필터(연도·시도·발화요인) → 전체 대시보드 실시간 필터링
+- 월별 화재 발생 추이 — 시계열 라인 (`px.line`)
+- 지역(시도)별 화재 순위 — 가로 막대 (`px.bar`)
+- 발화요인 대→소분류 계층 분석 — 트리맵형
+- 지상/지하 공간별 비율 — 도넛 (`px.pie`)
+- 차량 상태별 발화요인 교차 분석 — 누적 막대 (stacked bar)
+- 상세 표
+
+### 5-4. FAQ 대시보드 `pages/4_FAQ · faq`
+- 출처별 분포 — 도넛 차트 (`px.pie`)
+- 카테고리 Top 10 — 가로 막대, 클릭 시 해당 카테고리로 결과 필터 (`px.bar` + `on_select`)
+- 출처 사이트 토글 칩 (`st.pills`) / 카테고리 다중선택 필터 (`st.multiselect`)
+- 지표 카드 4종 + 질문 검색
+- DB 접속 실패 시 `data/faq.json` 으로 자동 폴백
+
+> 모든 페이지는 DB 연결 실패 시 로컬 CSV/JSON으로 폴백하도록 구현해, DB 없이도 화면을 확인할 수 있습니다.
+
+<br>
+
+## 6. 실행 방법
 
 ```bash
-# 저장소 클론 (처음 한 번만)
-git clone https://github.com/AhnJung-min/skn_1st_project_evcar.git
-cd skn_1st_project_evcar
-
-# 패키지 설치
+# 1) 패키지 설치
 pip install -r requirements.txt
-```
 
-`.env.example`을 복사해서 `.env`를 만들고 DB 비밀번호를 채웁니다.
-
-```bash
+# 2) 환경변수 설정 — .env.example 을 복사해 DB 비밀번호·Kakao API 키 입력
 copy .env.example .env   # Windows
-```
+# cp .env.example .env    # Mac/Linux
 
-```ini
-# .env
-DB_HOST=localhost
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=여기에_비밀번호_입력
-DB_NAME=ev_infra
-```
-
----
-
-### STEP 1 — 내 데이터 파일 넣기
-
-`data/` 폴더에 CSV 파일을 복사합니다.
-
-```
-data/
-├── faq.json        ← 안정민 (건드리지 말 것)
-└── 홍길동_ev.csv   ← 본인 파일 추가
-```
-
-> `_raw`가 파일명에 들어가면 gitignore가 자동으로 커밋 제외합니다.
-
----
-
-### STEP 2 — 내 테이블 만들기 (`sql/schema.sql`)
-
-`schema.sql` 하단 팀원 추가 영역에 본인 테이블을 추가하고 실행합니다.
-
-```sql
--- [홍길동] 예시 테이블
-CREATE TABLE IF NOT EXISTS ev_charger (
-    id         INT            NOT NULL,
-    station_nm VARCHAR(200)   NOT NULL  COMMENT '충전소명',
-    addr       VARCHAR(300)   NULL      COMMENT '주소',
-    lat        DECIMAL(10,7)  NULL      COMMENT '위도',
-    lng        DECIMAL(10,7)  NULL      COMMENT '경도',
-    created_at TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-```
-
-```bash
-# 로컬 DB에 반영 (처음 한 번 + 테이블 추가할 때마다)
+# 3) (선택) DB 스키마 생성 후 데이터 적재
 mysql -u root -p < sql/schema.sql
-```
 
----
-
-### STEP 3 — 적재 스크립트 작성 (`etl/load_홍길동.py`)
-
-아래 템플릿을 복사해서 파일명과 내용만 본인에 맞게 수정합니다.
-
-```python
-# etl/load_홍길동.py
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-import pandas as pd
-from common.config import settings
-from common.db import get_engine
-
-def main():
-    # 1) 데이터 읽기
-    df = pd.read_csv(settings.DATA_DIR / "홍길동_ev.csv", encoding="utf-8-sig")
-
-    # 2) 컬럼명을 테이블 컬럼명으로 맞추기
-    df = df.rename(columns={
-        "충전소명": "station_nm",
-        "주소":    "addr",
-        "위도":    "lat",
-        "경도":    "lng",
-    })
-
-    # 3) DB에 저장
-    #    if_exists="append"  → 기존 데이터에 추가
-    #    if_exists="replace" → 기존 데이터 삭제 후 재적재
-    df.to_sql("ev_charger", con=get_engine(), if_exists="append", index=False)
-    print(f"적재 완료: ev_infra.ev_charger ({len(df)}건)")
-
-if __name__ == "__main__":
-    main()
-```
-
-```bash
-python etl/load_홍길동.py
-```
-
----
-
-### STEP 4 — 대시보드 페이지 만들기 (`app/pages/2_충전소현황.py`)
-
-`app/pages/` 에 파일을 추가하면 사이드바에 자동으로 메뉴가 생깁니다.  
-파일명 앞 숫자가 메뉴 순서입니다 (예: `2_충전소현황.py` → 두 번째 메뉴).
-
-```python
-# app/pages/2_충전소현황.py
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # pages/는 parents[2]
-
-import pandas as pd
-import streamlit as st
-from common.config import settings
-from common.db import get_engine
-
-st.set_page_config(page_title="충전소 현황", page_icon="⚡")
-st.title("⚡ 전기차 충전소 현황")
-
-@st.cache_data
-def load_data():
-    try:
-        return pd.read_sql("SELECT * FROM ev_charger", get_engine())
-    except Exception:
-        # DB 없을 때 CSV로 대신 보여주기
-        return pd.read_csv(settings.DATA_DIR / "홍길동_ev.csv", encoding="utf-8-sig")
-
-df = load_data()
-st.dataframe(df)
-# 여기 아래에 본인 시각화 코드 작성
-```
-
-대시보드 실행:
-
-```bash
+# 4) 대시보드 실행
 streamlit run app/dashboard.py
 ```
 
----
+> DB가 없어도 각 페이지가 `data/` 의 CSV/JSON으로 폴백 동작합니다.
 
-### STEP 5 — 커밋 & 푸시
-
-**본인이 만든 파일만** 골라서 올립니다. 다른 사람 파일을 건드리면 충돌이 납니다.
-
-```bash
-# 내 파일만 스테이징
-git add data/홍길동_ev.csv
-git add etl/load_홍길동.py
-git add sql/schema.sql            # 내 테이블 DDL 추가했을 때만
-git add app/pages/2_충전소현황.py
-
-# 커밋
-git commit -m "feat: [홍길동] 충전소 데이터 적재 및 대시보드 추가"
-
-# push 전에 반드시 최신 코드 먼저 받기 (충돌 방지)
-git pull origin main
-git push origin main
-```
-
----
-
-## 디렉토리 구조
+### 디렉토리 구조
 
 ```
 skn_1st_project_evcar/
-│
-├── common/                 ← 팀 공용 모듈 (모든 팀원이 import해서 씀)
-│   ├── config.py           ← DB 접속 정보, 파일 경로 (settings 객체)
-│   ├── db.py               ← get_engine() — DB 엔진 싱글턴
-│   └── models.py           ← SQLAlchemy ORM 모델
-│
-├── data/                   ← 데이터 파일
-│   ├── faq.json / faq.csv  ← [안정민] FAQ 데이터
-│   └── *_raw.*             ← 원본 파일 (gitignore, 커밋 안 됨)
-│
-├── etl/                    ← 데이터 수집 · 적재 스크립트
-│   ├── extract*.py         ← [안정민 전용] 크롤링
-│   ├── transform.py        ← [안정민 전용] 정제
-│   ├── load.py             ← [안정민] faq 적재
-│   └── load_<이름>.py      ← [팀원] 본인 데이터 적재
-│
-├── sql/
-│   └── schema.sql          ← DB 테이블 정의 (팀원 테이블도 여기 추가)
-│
+├── common/                 ← 팀 공용 모듈 (config·db·models·ui)
+├── data/                   ← 수집 데이터 (CSV / JSON / XLSX)
+├── etl/                    ← 수집(extract)·정제(transform)·적재(load) 스크립트
+├── sql/                    ← DB 스키마 및 ERD import SQL
 ├── app/
-│   ├── dashboard.py        ← [안정민] FAQ 대시보드 (메인 페이지)
-│   └── pages/
-│       └── <N>_<이름>.py   ← [팀원] 본인 대시보드 페이지
-│
-├── .env                    ← DB 비밀번호 (커밋 X)
-├── .env.example            ← .env 템플릿 (커밋 O)
+│   ├── dashboard.py        ← 메인(랜딩) 페이지
+│   └── pages/              ← 1_비중 / 2_충전수요 / 3_화재 / 4_FAQ
+├── .env.example            ← 환경변수 템플릿
 ├── requirements.txt
+├── DATASETS.md             ← 데이터셋 상세 명세
 └── README.md
 ```
 
----
+<br>
 
-## 공용 모듈 (`common/`) 사용법
+## 7. 수행 화면 캡처
 
-DB 접속 코드를 직접 쓰지 말고 아래처럼 가져다 씁니다.
+> _작성 예정_
 
-```python
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # etl/ 기준
-# app/pages/ 파일은 parents[2]
+<br>
 
-from common.config import settings   # settings.DATA_DIR, settings.database_url
-from common.db import get_engine     # SQLAlchemy 엔진 (싱글턴)
-```
+## 8. 회고
 
-| 모듈 | 제공하는 것 | 사용 예 |
-|---|---|---|
-| `common.config` | `settings.DATA_DIR` — data/ 경로 | `settings.DATA_DIR / "파일.csv"` |
-| `common.db` | `get_engine()` — DB 엔진 | `pd.read_sql("SELECT ...", get_engine())` |
-| `common.models` | `Faq` ORM 클래스 | 필요한 경우 팀원 모델도 추가 가능 |
+> _작성 예정_
 
----
-
-## 안정민 — FAQ 파이프라인
-
-```bash
-python etl/extract.py          # 한국교통안전공단 크롤링
-python etl/extract_car365.py   # 자동차365 크롤링
-python etl/extract_ev.py       # 무공해차 통합누리집 크롤링
-python etl/transform.py        # 정제·병합 → faq.json / faq.csv
-python etl/load.py             # MySQL 적재
-```
-
-| 출처 | 건수 |
-|---|---|
-| 한국교통안전공단 | 295건 |
-| 자동차365 | 93건 |
-| 무공해차 통합누리집 | 37건 |
-| **합계** | **425건** |
-
----
-
-## 담당 현황
-
-| 담당 | 데이터셋 | 테이블 | 진행 |
-|---|---|---|---|
-| 안정민 | 자동차 FAQ (3개 사이트) | `faq` | ✅ |
-| (팀원) | (본인 데이터셋) | (추가) | - |
-
----
-
-## FAQ
-
-**Q. DB 없이 대시보드를 볼 수 있나요?**  
-네. DB 연결 실패 시 CSV 파일로 자동 폴백합니다. `except` 블록에 CSV 경로를 넣어두면 됩니다.
-
-**Q. `.env`를 실수로 커밋하면 어떻게 되나요?**  
-`.gitignore`에 등록되어 있어 `git add .`해도 자동 제외됩니다. 절대 강제로 추가하지 마세요.
-
-**Q. `schema.sql`에서 충돌이 났어요.**  
-여러 명이 건드리는 유일한 공유 파일입니다. push 전에 반드시 `git pull`을 먼저 해주세요.
-
-**Q. `requirements.txt`에 패키지를 추가해도 되나요?**  
-추가하고 같이 커밋해 주세요.
+| 이름 | 회고 |
+| :---: | :--- |
+| 권세진 |  |
+| 김길환 |  |
+| 신가을 |  |
+| 안정민 |  |
+| 김혜리 |  |
