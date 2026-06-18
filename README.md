@@ -31,12 +31,12 @@
 
 | 구분 | 기술 |
 | :---: | :--- |
-| 언어 | `Python` |
-| 데이터 수집 | `requests` (OpenAPI) · 웹 스크래핑 · `Kakao 주소검색 API`(좌표 변환) |
-| 데이터 처리 | `pandas` · `openpyxl` |
-| 데이터베이스 | `MySQL` · `SQLAlchemy` · `PyMySQL` |
-| 시각화 / 웹 | `Streamlit` · `Plotly` · `Altair` · `pydeck` |
-| 환경 관리 | `python-dotenv` (`.env` 기반 DB·API 키 분리) |
+| 언어 | ![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white) |
+| 데이터 수집 | `requests` (OpenAPI) · 웹 스크래핑 · ![Kakao](https://img.shields.io/badge/Kakao-FFCD00?style=flat-square&logo=kakaotalk&logoColor=000000) 주소검색 API (좌표 변환) |
+| 데이터 처리 | ![pandas](https://img.shields.io/badge/pandas-150458?style=flat-square&logo=pandas&logoColor=white) · `openpyxl` |
+| 데이터베이스 | ![MySQL](https://img.shields.io/badge/MySQL-4479A1?style=flat-square&logo=mysql&logoColor=white) · ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-D71F00?style=flat-square&logo=sqlalchemy&logoColor=white) · `PyMySQL` |
+| 시각화 / 웹 | ![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=flat-square&logo=streamlit&logoColor=white) · ![Plotly](https://img.shields.io/badge/Plotly-3F4F75?style=flat-square&logo=plotly&logoColor=white) · `Altair` · `pydeck` |
+| 환경 관리 | ![dotenv](https://img.shields.io/badge/dotenv-ECD53F?style=flat-square&logo=dotenv&logoColor=000000) `.env` 기반 DB·API 키 분리 |
 
 <br>
 
@@ -64,13 +64,13 @@
 
 | 테이블 | 설명 | 담당 |
 | :--- | :--- | :---: |
-| `faq` | 자동차 관련 사이트 FAQ(출처별 통합, PK: `source` + `id`) | 안정민 |
-| `ev_fire_records` | 전기차 화재 발생 현황(연·월·시도·발화요인 등) | 신가을 |
-| `car_ev_status` | 전체 자동차 대비 전기차 비중(지역·월별) | 김길환 |
-| `raw_highway_traffic` / `ev_traffic_analysis` | 고속도로 통행량 원본 → 정제·집계 | 권세진 |
-| `raw_ev_charger_daily` / `ev_charging_analysis` | 충전소 일별 원본 → 정제·집계 | 김혜리 |
-| `ev_charger_geo` | 충전소 좌표(Kakao API 결과) | 김혜리 |
-| `ev_charging_map_analysis` (VIEW) | 충전 집계 + 좌표 조인(지도 시각화용) | 김혜리 |
+| `faq` | 자동차 관련 사이트 FAQ(출처별 통합, PK: `source` + `id`) | 안&#8288;정&#8288;민 |
+| `ev_fire_records` | 전기차 화재 발생 현황(연·월·시도·발화요인 등) | 신&#8288;가&#8288;을 |
+| `car_ev_status` | 전체 자동차 대비 전기차 비중(지역·월별) | 김&#8288;길&#8288;환 |
+| `raw_highway_traffic` / `ev_traffic_analysis` | 고속도로 통행량 원본 → 정제·집계 | 권&#8288;세&#8288;진 |
+| `ev_charger_geo` | 충전소 좌표(Kakao API 결과) | 권&#8288;세&#8288;진 |
+| `raw_ev_charger_daily` / `ev_charging_analysis` | 충전소 일별 원본 → 정제·집계 | 김&#8288;혜&#8288;리 |
+| `ev_charging_map_analysis` (VIEW) | 충전 집계 + 좌표 조인(지도 시각화용) | 김&#8288;혜&#8288;리 |
 
 > 설계 패턴 — 원본은 `raw_*` 테이블에 문자 그대로 적재한 뒤, SQL/Python으로 정제해 `*_analysis` 분석 테이블로 빌드합니다. 지도 화면은 별도 적재 없이 VIEW로 조인합니다.
 
