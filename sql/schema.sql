@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS car_ev_status (
   COMMENT='전체 자동차 대비 전기차 비중(지역·월별)';
 
 -- ------------------------------------------------------------
---  [김길환?] 고속도로 전기차 통행량 · 충전 수요 분석
+--  [김혜리, 권세진] 고속도로 전기차 통행량 · 충전 수요 분석
 --    raw_* : 엑셀 원본 적재용(문자 그대로) → 정제 INSERT 는 etl/transform_charging_traffic.sql
 --    ev_*_analysis : 정제·집계된 분석 테이블
 --    ev_charger_geo : 충전소 좌표(카카오 주소검색 API 결과)
